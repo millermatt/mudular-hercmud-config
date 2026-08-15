@@ -1,0 +1,155 @@
+# saihtam — cleric, and mostly a passenger. He follows mathias, so movement
+# needs nothing here; mathias' `send_to:` does the commanding.
+#
+# What is left is the half mathias cannot see: saihtam's own hit points, his
+# mana running out, and a heal that the server refused.
+name: saihtam
+login:
+  name: saihtam
+host: hercmud.net
+port: 4443
+tls:
+  enabled: true
+  verify: full        # full | pinned | insecure
+charset: utf-8          # or a legacy fallback: latin1, cp437
+color: yellow
+modules:
+  - hercmud-combat
+  - hercmud-health
+  - practice
+
+variables:
+  # Idle skill-up. One action per line, `| mana` meaning "only when mana is
+  # full" — which is also never in combat, so the tank's heal is never
+  # waiting on a practice cast.
+  #
+  # Every rung, cheapest first. The loop drops whichever ones the server
+  # refuses ("You do not know that spell!") and rotates the rest, so this
+  # needs no knowing what level he is or what he has practised — and a rung
+  # rejoins after `/reload` once he practises it.
+  #
+  # Listing the cheap ones is not waste: only-when-full means exactly one
+  # cast per refill whatever it cost, and a 10-mana cast refills five times
+  # sooner than a 50-mana one, so the cheap rungs train considerably faster.
+  practice_list: |
+    cast 'cure light' saihtam | mana
+    cast 'cure minor' saihtam | mana
+    cast 'cure normal' saihtam | mana
+    cast 'cure serious' saihtam | mana
+    cast 'cure critic' saihtam | mana
+
+# mathias asks for a heal by injecting the bare token `ch`, which has to
+# expand through the alias below to reach duo.lua. Receiver-side by
+# design: only this profile can opt its own aliases in.
+cross_session:
+  expand_aliases: true
+
+aliases:
+  # Anchored, all of them: these now also match commands mathias injects,
+  # and an unanchored `am` would fire on any line containing "am".
+  - pattern: '^am$'
+    send: ["assist mathias"]
+
+  # `ch` — heal mathias with the best spell for the size of the hole. This
+  # is what mathias' `h` and his automatic call both arrive as.
+  - pattern: '^ch$'
+    script:
+      file: duo.lua
+      fn: heal_tank
+
+  # `cc` — same judgement, applied to me.
+  - pattern: '^cc$'
+    script:
+      file: duo.lua
+      fn: heal_self
+
+  # Naming a rung by hand, when you want to override the choice. `cure
+  # light` is 1d8 — about five hit points — so it is a between-fights
+  # top-up, not a heal.
+  - pattern: '^clm$'
+    send: ["cast 'cure light' mathias"]
+  - pattern: '^csm$'
+    send: ["cast 'cure serious' mathias"]
+  - pattern: '^ccm$'
+    send: ["cast 'cure critic' mathias"]
+
+triggers:
+  # mathias does the looting; two characters racing for the same corpse is
+  # just noise.
+  - id: autoloot
+    enabled: false
+
+  # --- saihtam's own skin ----------------------------------------------
+  # Same per-round anchor as mathias uses, matched against the messages the
+  # server sends *me* when something hits me.
+  - id: self-heal
+    pattern: &incoming '(?:\b(?:miss|tickles|hits|stings|whips|slashes|bites|bludgeons|crushes|pounds|claws|mauls|thrashes|pierces|blasts|punches|stabs|gores|massacres|obliterates|liquifies|vaporizes|annihilates|ATOMIZES) you\b|^You staggers from a fearsome )'
+    when: '${self_healing} == 0'
+    script:
+      file: duo.lua
+      fn: heal_self
+
+  # A dead cleric heals nobody, but deciding *when* to run is the server's
+  # job — type `wimpy` once here too and it flees on its own, off the real
+  # maximum. All this does is say so, because mathias is about to stop being
+  # healed and needs to know why.
+  - id: wimped-out
+    pattern: '^You wimp out, and attempt to flee!$'
+    send: ["gn fled, low HP"]
+    bell: true
+    set:
+      self_healing: "0"
+
+  # --- healing that did not happen -------------------------------------
+  # A lost concentration roll still costs half the mana and a full round,
+  # so the heal has to be re-thrown — but only if mathias is still low
+  # enough to need it, and only once per cooldown.
+  - id: retry-heal
+    pattern: '^You lost your concentration!'
+    when: '${retrying} == 0'
+    script:
+      file: duo.lua
+      fn: retry_heal
+
+  # Out of mana is mathias' problem more than mine: he is the one who has
+  # to decide to break off. `gn` puts it in his comms pane.
+  - id: out-of-mana
+    pattern: '^You haven''t the energy to cast that spell!$'
+    script:
+      file: duo.lua
+      fn: no_energy
+    bell: true
+    highlight:
+      fg: red
+      bold: true
+      whole_line: true
+
+  # The server's own answer about what this cleric can cast — worth more
+  # than any level table, because `cast` gates on the learned percentage and
+  # a spell has to be practised, not just reached.
+  - id: unknown-spell
+    pattern: '^You do not know that spell!$'
+    script:
+      file: duo.lua
+      fn: not_known
+
+  # `heal`, `bless` and `prayer` are standing-only. Reaching this means a
+  # between-fights spell was sent mid-fight; it cost nothing, but the
+  # command it was meant to be did not happen.
+  - id: wrong-position
+    pattern: '^Impossible!  You can''t concentrate enough!$'
+    highlight:
+      fg: yellow
+      whole_line: true
+
+  - id: partner-died
+    pattern: '^Your blood freezes as you hear Mathias''s death cry\.$'
+    bell: true
+    highlight:
+      fg: red
+      bold: true
+      whole_line: true
+
+  - pattern: '^You are dead!  Sorry\.\.\.$'
+    corpse: true
+    bell: true

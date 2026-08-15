@@ -1,0 +1,20 @@
+name: mudd
+host: hercmud.net
+port: 4443
+tls:
+  enabled: true
+  verify: full
+charset: utf-8
+color: Green
+login:
+  name: mudd
+triggers:
+- id: drink-fountain
+  pattern: A large marble fountain stands in the middle of the square\.
+  send:
+  - drink fountain
+timers:
+- id: who
+  every: 5m
+  send:
+  - who

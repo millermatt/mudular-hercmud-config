@@ -1,0 +1,121 @@
+# Shared combat config for the mathias (warrior) / saihtam (cleric) duo.
+#
+# Everything symmetric lives here; the asymmetric halves — mathias drives,
+# saihtam executes — live in the two profiles.
+#
+# FLEEING IS THE SERVER'S JOB. Type `wimpy` once on each character and it
+# auto-flees the instant damage drops it below max_hp/3 — measured against
+# the real maximum, with no client round-trip and nothing to tune. There is
+# deliberately no client-side flee threshold here; the rules only *react* to
+# the server's own "You wimp out" so the other character comes along.
+#
+# HEALING LIVES IN duo.lua: the thresholds as fractions of each character's
+# maximum, and the spell choice as a ladder the cleric discovers from the
+# server's own refusals. Nothing here needs retuning when either of you
+# levels or practises something new.
+name: hercmud-combat
+description: Shared combat config
+
+# Loaded by both characters; each session gets its own VM.
+scripts:
+  - duo.lua
+
+variables:
+  target: none
+
+  # Cooldown latches. A rule sets one to stop itself repeating every combat
+  # round; the duo-cooldowns timer clears them all a few seconds later, so
+  # nothing can wedge on a message that never arrives.
+  healing: 0
+  assisting: 0
+  self_healing: 0
+  retrying: 0
+
+aliases:
+  - pattern: gac
+    send: ["get all corpse"]
+  - pattern: jc
+    send: ["get corpse", "junk corpse"]
+
+triggers:
+  # fight.c prints "$n is dead!  R.I.P." with TWO spaces after the bang.
+  - id: autoloot
+    pattern: '^(?P<who>.+) is dead!  R\.I\.P\.$'
+    when: '${who} != "Mathias" and ${who} != "Saihtam"'
+    send: ["get all corpse"]
+
+  # Share the gold the moment it is picked up. The server prints this from
+  # get_check_money (act.obj.c) and only when the pile is more than one coin,
+  # so there is no singular "1 coin" wording to match -- a lone coin is
+  # silent and simply stays yours.
+  #
+  # Anchored deliberately: unanchored, somebody gossiping "There were 500
+  # coins." would make you hand over gold you never found.
+  - id: split-loot
+    pattern: '^There were (?P<coins>\d+) coins\.$'
+    send: ["split ${coins}"]
+
+  # do_split needs AFF_GROUP, so playing solo this replies every single time
+  # a corpse pays out. The split itself is harmless -- nothing is lost -- but
+  # the complaint is not news. Note the remainder stays with you: `share =
+  # amount / num` is integer division, so splitting 7 two ways gives 3 each
+  # and you keep the odd coin.
+  - id: gag-split-solo
+    pattern: '^With whom do you wish to share your gold\?$'
+    gag: true
+
+  # Same line, unguarded: whatever died, this fight is over, so drop the
+  # latches rather than waiting out the timer.
+  - id: fight-over
+    pattern: ' is dead!  R\.I\.P\.$'
+    set:
+      healing: "0"
+      assisting: "0"
+      self_healing: "0"
+      retrying: "0"
+
+  - id: fled
+    pattern: '^You flee head over heels\.$'
+    set:
+      healing: "0"
+      assisting: "0"
+      self_healing: "0"
+
+  # Re-target whatever just hit us, so `k` re-engages after an ambush
+  # instead of swinging at a stale name. A heuristic, not a fact: the
+  # server sends a short description ("the large goblin"), and the last
+  # word of one is usually — not always — the keyword `kill` wants. Worst
+  # case is "No-one by that name here.", so `t` remains the way to be sure.
+  #
+  # (There is nothing better to key on: no message on this server says
+  # "you are now fighting X", and MSDP never reports OPPONENT_NAME because
+  # comm.c's msdp_update only ever sets the self-vitals block.)
+  - id: track-target
+    pattern: '^.*?(?P<foe>\w+) (?:tail whips|miss|tickles|hits|stings|whips|slashes|bites|bludgeons|crushes|pounds|claws|mauls|thrashes|pierces|blasts|punches|stabs|gores|massacres|obliterates|liquifies|vaporizes|annihilates|ATOMIZES) you\b'
+    set:
+      target: "${foe}"
+
+  # Harmless cross-talk from an assist that arrived a beat early or late.
+  # Gagged rather than removed: the retry is what makes the duo robust, and
+  # its failures are not news.
+  - id: gag-assist-early
+    pattern: '^But they are not fighting anyone\.$'
+    gag: true
+  - id: gag-assist-late
+    pattern: '^But you are already fighting someone!$'
+    gag: true
+
+timers:
+  - id: autosave
+    every: 5m
+    send: ["save"]
+
+  # The only thing keeping a latch from being permanent. No traffic — it
+  # sends nothing.
+  - id: duo-cooldowns
+    every: 3s
+    set:
+      healing: "0"
+      assisting: "0"
+      self_healing: "0"
+      retrying: "0"

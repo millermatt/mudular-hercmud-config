@@ -1,0 +1,23 @@
+# Shared rule module. Goes in `modules/` under the config dir:
+#   Linux:   ~/.config/mudular/modules/
+#   macOS:   ~/Library/Application Support/mudular/modules/
+#   Windows: %APPDATA%\mudular\config\modules\
+#
+# Modules are listed by name in a profile's `modules:` and applied in that
+# order. Giving a rule an `id` lets a profile override or disable it later
+# without repeating the pattern — saihtam.yaml does that to turn off autoloot.
+name: hercmud-health
+description: Shared health config
+triggers:
+  - id: drink-fountain
+    pattern: '^A large marble fountain stands in the middle of the square\.$'
+    send: ["drink fountain"]
+  - id: drink-well
+    pattern: '^A well sits in the center of the road, with a bucket attached to it\.$'
+    send: ["drink well"]
+  - pattern: '^You are hungry\.$'
+    send: ["eat bread"]
+timers:
+  - id: autosave
+    every: 5m
+    send: ["save"]

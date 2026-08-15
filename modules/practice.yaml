@@ -1,0 +1,99 @@
+# Idle skill-up. Add this module to any character who has something worth
+# repeating, then list the actions in that profile's `practice_list`. With no
+# list the module does nothing at all, so adding it is always safe.
+#
+# The machinery in practice.lua is class-agnostic; the patterns below are
+# hercmud's, since knowing what a fight looks like is MUD-specific.
+#
+# WHAT IS ACTUALLY IDLE-GRINDABLE. Improvement needs a *use*, so anything
+# needing a target cannot be practised alone — which rules out the whole
+# warrior line (bash, kick, disarm, rescue). Workable examples:
+#
+#   cleric   cast 'cure light' <self> | mana     heals 0 at full HP, no error,
+#                                               and still counts as a cast
+#   mage     cast 'armor' <self> | mana
+#   thief    hide                                no target, no resource
+#
+# Ratings are per action: grinding `cure light` does nothing for `cure
+# critic`. Cheap actions train far faster in wall-clock time, because a use
+# is a use whatever it cost — `cure light` at 10 mana trains five times as
+# fast as `cure critic` at 50. Grind the expensive one only when it is that
+# specific rating you want.
+#
+# A peaceful room (the temple) is the best place to leave this running: the
+# ROOM_PEACEFUL check in call_magic only rejects violent spells, so cures
+# work there, and nothing wanders in to kill an unattended character.
+name: practice
+description: Repeat improve-by-use actions when nothing else is happening
+
+scripts:
+  - practice.lua
+
+variables:
+  # Overridden per profile. Empty here so the module is inert by default.
+  practice_list: ""
+  practice_on: 1
+  # Written by the triggers below and cleared by the heartbeat that reads it.
+  combat_seen: 0
+  upright: 1
+
+aliases:
+  # `prt`, not `pr`: typing `pr` at this server abbreviates to `practice`,
+  # the ratings listing, which is exactly what you want to reach while
+  # grinding — so it stays unclaimed.
+  - pattern: '^prt$'
+    script:
+      file: practice.lua
+      fn: practice_toggle
+  - pattern: '^prs$'
+    script:
+      file: practice.lua
+      fn: practice_status
+
+triggers:
+  # Anything shaped like a fight, in either direction. Only ever sets the
+  # flag — the script decides what it means.
+  - id: practice-combat-incoming
+    pattern: '(?:\b(?:miss|tickles|hits|stings|whips|slashes|bites|bludgeons|crushes|pounds|claws|mauls|thrashes|pierces|blasts|punches|stabs|gores|massacres|obliterates|liquifies|vaporizes|annihilates|ATOMIZES) you\b|^You staggers from a fearsome )'
+    set:
+      combat_seen: "1"
+
+  - id: practice-combat-outgoing
+    pattern: '^You (?:miss|tickle|barely |hit|sting|whip|slash|bite|bludgeon|crush|pound|claw|maul|thrash|pierce|blast|punch|stab|gore|tail whip|massacre|obliterate|liquify|vaporize|annihilate|ATOMIZE)'
+    set:
+      combat_seen: "1"
+
+  # The edges of a fight, which the damage patterns can miss entirely — a
+  # kill in one blow, or a mob that never lands a hit.
+  - id: practice-combat-markers
+    pattern: '(?:^You join the fight!$| is dead!  R\.I\.P\.$|^You wimp out, and attempt to flee!$|^You flee head over heels\.$|^You are dead!  Sorry\.\.\.$)'
+    set:
+      combat_seen: "1"
+
+  # A flat refusal: an unlearned spell, a misspelled spell name, a command
+  # that does not exist. None of these cost mana or a round, so the loop
+  # would otherwise repeat the same doomed command every tick forever.
+  - id: practice-rejected
+    pattern: '^(?:You do not know that spell!|Cast what\?!\?|Spell names must be enclosed in the Holy Magic Symbols: ''|You have to follow a god first to gain any spells\.|Arglebargle, glop-glyf!\?!)$'
+    script:
+      file: practice.lua
+      fn: practice_failed
+
+  # Position, so the heartbeat does not spend every tick being told it
+  # cannot concentrate while resting.
+  - id: practice-down
+    pattern: '^You (?:sit down and rest your tired bones|rest your tired bones|stop floating around, and stop to rest your tired bones|sit down|stop resting, and sit up|stop floating around, and sit down|go to sleep|stop floating around, and lie down to sleep|awaken, and sit up)\.$'
+    set:
+      upright: "0"
+
+  - id: practice-up
+    pattern: '^You (?:stand up|stop resting, and stand up|stop floating around, and put your feet on the ground)\.$'
+    set:
+      upright: "1"
+
+  # The server's own word that we were wrong about position — cheaper to
+  # believe it than to model every way of ending up seated.
+  - id: practice-not-upright
+    pattern: '^(?:You can''t do this sitting!|You cannot concentrate while resting\.|You dream about great magical powers\.)$'
+    set:
+      upright: "0"

@@ -1,0 +1,9 @@
+# Generated or private state — this repo is only things I wrote.
+comms/
+maps/
+map-debug/
+backups/
+logs/
+ui_state.json
+*.log
+keyring_declined

@@ -1,0 +1,21 @@
+# Mudular's own settings. Goes in the config dir:
+#   Linux:   ~/.config/mudular/mudular.yaml
+#   macOS:   ~/Library/Application Support/mudular/mudular.yaml
+#   Windows: %APPDATA%\mudular\config\mudular.yaml
+#
+# Entirely optional — with no file, or no keybinds section, quit defaults
+# to ctrl+c.
+keybinds:
+  quit: ctrl+q
+  focus_next: alt+n
+
+channels:
+  - name: comms
+    match:
+      - '^\[gossip\]'
+      - '^\w+ tells you'
+      - '^\[ Newbie \]:'
+      - '^\w+ WizNets ::'
+      - '^.+ groupnets ::'
+    keep_in_main: false
+    timestamps: true
