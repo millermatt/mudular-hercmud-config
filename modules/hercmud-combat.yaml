@@ -34,8 +34,28 @@ variables:
 aliases:
   - pattern: gac
     send: ["get all corpse"]
-  - pattern: jc
+  # `jc` — clear a corpse you are done with. Manual on purpose, and worth
+  # keeping that way.
+  #
+  # Every corpse on this server is ITEM_WEAR_TAKE, player corpses included
+  # (fight.c make_corpse: the only PC difference is a decay timer), and
+  # extract_obj recurses into a container's contents. So junking a corpse
+  # destroys whatever is inside it. On a *player's* corpse that is their
+  # equipment and the experience their death cost them, because
+  # GET_OBJ_COST(corpse) carries that exp for recover_corpse_exp() to give
+  # back. Automate this on a `is dead!` trigger and you will eventually junk a
+  # groupmate's corpse while they are running back to it.
+  #
+  # `sacrifice` pays a flat 5 gold; `junk` pays cost/16, floored at 1 and
+  # capped at 200. A mob corpse costs nothing, so sacrifice is the better of
+  # the two there — 5 against 1.
+  - pattern: '^jc$'
     send: ["get corpse", "junk corpse"]
+
+  # `sc` — 5 gold instead of 1 for a mob corpse. Same warning as above: this
+  # destroys the corpse and everything in it.
+  - pattern: '^sc$'
+    send: ["sacrifice corpse"]
 
 triggers:
   # fight.c prints "$n is dead!  R.I.P." with TWO spaces after the bang.
