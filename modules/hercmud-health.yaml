@@ -10,12 +10,12 @@ name: hercmud-health
 description: Shared health config
 triggers:
   - id: drink-fountain
-    pattern: '^A large marble fountain stands in the middle of the square\.$'
+    regex: '^A large marble fountain stands in the middle of the square\.$'
     send: ["drink fountain"]
   - id: drink-well
-    pattern: '^A well sits in the center of the road, with a bucket attached to it\.$'
+    regex: '^A well sits in the center of the road, with a bucket attached to it\.$'
     send: ["drink well"]
-  - pattern: '^You are hungry\.$'
+  - regex: '^You are hungry\.$'
     send: ["eat bread"]
 timers:
   - id: autosave

@@ -27,7 +27,7 @@ aliases:
   # `t goblin` picks a target without attacking. Your own typed line is
   # the confirmation — the server's `echo` is a wizard command, so there
   # is nothing safe to print back.
-  - pattern: '^t (.+)$'
+  - regex: '^t (.+)$'
     set:
       target: "${1}"
 
@@ -37,13 +37,13 @@ aliases:
   # descriptor_list, so if saihtam connected second his `assist` runs
   # before this `kill` in the same pulse and fails. The output-driven
   # copy always lands, one round later at worst.
-  - pattern: '^k$'
+  - regex: '^k$'
     send: ["kill ${target}"]
     send_to:
       saihtam: ["assist mathias"]
 
   # `kk goblin` — target and engage in one.
-  - pattern: '^kk (.+)$'
+  - regex: '^kk (.+)$'
     set:
       target: "${1}"
     send: ["kill ${1}"]
@@ -53,43 +53,43 @@ aliases:
   # --- healing ---------------------------------------------------------
   # `h` — heal me now, whatever my HP says. Names no spell: saihtam's
   # `ch` picks the right rung for the size of the hole.
-  - pattern: '^h$'
+  - regex: '^h$'
     send_to:
       saihtam: ["ch"]
 
   # `hh` — the big one, out of combat only: `heal` is standing-only and
   # costs 125 mana, so it is a between-fights top-up, not a rescue.
-  - pattern: '^hh$'
+  - regex: '^hh$'
     send_to:
       saihtam: ["stand", "cast 'heal' mathias"]
 
   # --- keeping the two of us together ---------------------------------
   # `f` — break off, both of us. saihtam may land in a different room;
   # `grp` puts you back together.
-  - pattern: '^f$'
+  - regex: '^f$'
     send: ["flee"]
     send_to:
       saihtam: ["flee"]
 
   # `grp` — re-form the group after a flee, a death, or a reconnect.
   # groupnet needs AFF_GROUP, so this is also what makes `gn` work.
-  - pattern: '^grp$'
+  - regex: '^grp$'
     send: ["group saihtam"]
     send_to:
       saihtam: ["follow mathias"]
 
-  - pattern: '^rr$'
+  - regex: '^rr$'
     send: ["rest"]
     send_to:
       saihtam: ["rest"]
 
-  - pattern: '^ss$'
+  - regex: '^ss$'
     send: ["stand"]
     send_to:
       saihtam: ["stand"]
 
   # `bb` — pre-fight buff. Standing-only, so cast it before you engage.
-  - pattern: '^bb$'
+  - regex: '^bb$'
     send_to:
       saihtam: ["stand", "cast 'bless' mathias"]
 
@@ -101,7 +101,7 @@ triggers:
   # The YAML anchor below reuses the same pattern for the rules that share
   # it rather than repeating 300 characters of alternation.
   - id: heal-call
-    pattern: &incoming '(?:\b(?:miss|tickles|hits|stings|whips|slashes|bites|bludgeons|crushes|pounds|claws|mauls|thrashes|pierces|blasts|punches|stabs|gores|massacres|obliterates|liquifies|vaporizes|annihilates|ATOMIZES) you\b|^You staggers from a fearsome )'
+    regex: &incoming '(?:\b(?:miss|tickles|hits|stings|whips|slashes|bites|bludgeons|crushes|pounds|claws|mauls|thrashes|pierces|blasts|punches|stabs|gores|massacres|obliterates|liquifies|vaporizes|annihilates|ATOMIZES) you\b|^You staggers from a fearsome )'
     when: '${healing} == 0'
     script:
       file: duo.lua
@@ -111,7 +111,7 @@ triggers:
   # so it is one command per fight, not one per round; the module gags the
   # "already fighting" reply either way.
   - id: assist-call
-    pattern: *incoming
+    regex: *incoming
     when: '${assisting} == 0'
     send_to:
       saihtam: ["assist mathias"]
@@ -121,7 +121,7 @@ triggers:
   # The same call for a fight I started against something that has not
   # hit back yet (fight.c dam_message, the to_char column).
   - id: assist-call-outgoing
-    pattern: '^You (?:miss|tickle|barely |hit|sting|whip|slash|bite|bludgeon|crush|pound|claw|maul|thrash|pierce|blast|punch|stab|gore|tail whip|massacre|obliterate|liquify|vaporize|annihilate|ATOMIZE)'
+    regex: '^You (?:miss|tickle|barely |hit|sting|whip|slash|bite|bludgeon|crush|pound|claw|maul|thrash|pierce|blast|punch|stab|gore|tail whip|massacre|obliterate|liquify|vaporize|annihilate|ATOMIZE)'
     when: '${assisting} == 0'
     send_to:
       saihtam: ["assist mathias"]
@@ -132,7 +132,7 @@ triggers:
   # The server bailed me out on its own. Pull saihtam out too, or he is
   # left alone with whatever I was holding.
   - id: wimped-out
-    pattern: '^You wimp out, and attempt to flee!$'
+    regex: '^You wimp out, and attempt to flee!$'
     send_to:
       saihtam: ["flee"]
     set:
@@ -141,7 +141,7 @@ triggers:
     bell: true
 
   - id: flee-failed
-    pattern: '^PANIC!  You couldn''t escape!$'
+    regex: '^PANIC!  You couldn''t escape!$'
     bell: true
 
   # Below zero and losing HP every tick. Deliberately un-latched: a cure
@@ -149,7 +149,7 @@ triggers:
   # still heal a target who can no longer act, and this is the one moment
   # worth spending mana on every single line.
   - id: incapacitated
-    pattern: '^You are (?:mortally wounded, and will die soon|incapacitated and will slowly die), if not aided\.$'
+    regex: '^You are (?:mortally wounded, and will die soon|incapacitated and will slowly die), if not aided\.$'
     send_to:
       saihtam: ["ch"]
     bell: true
@@ -157,7 +157,7 @@ triggers:
   # Remembers the room for `/corpse` to walk back to. The server wakes the
   # dead at the start room, so this is the only record of where the body is.
   - id: died
-    pattern: '^You are dead!  Sorry\.\.\.$'
+    regex: '^You are dead!  Sorry\.\.\.$'
     corpse: true
     bell: true
     send_to:
@@ -167,12 +167,12 @@ triggers:
       assisting: "0"
 
   - id: partner-died
-    pattern: '^Your blood freezes as you hear Saihtam''s death cry\.$'
+    regex: '^Your blood freezes as you hear Saihtam''s death cry\.$'
     bell: true
     highlight:
       fg: red
       bold: true
       whole_line: true
 
-  - pattern: '^You are hungry\.$'
+  - regex: '^You are hungry\.$'
     send: ["eat bread"]

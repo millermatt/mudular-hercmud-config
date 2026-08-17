@@ -10,7 +10,7 @@ login:
   name: mudd
 triggers:
 - id: drink-fountain
-  pattern: A large marble fountain stands in the middle of the square\.
+  regex: A large marble fountain stands in the middle of the square\.
   send:
   - drink fountain
 timers:

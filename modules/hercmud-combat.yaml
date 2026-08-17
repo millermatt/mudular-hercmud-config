@@ -32,7 +32,7 @@ variables:
   retrying: 0
 
 aliases:
-  - pattern: gac
+  - regex: gac
     send: ["get all corpse"]
   # `jc` — clear a corpse you are done with. Manual on purpose, and worth
   # keeping that way.
@@ -49,18 +49,18 @@ aliases:
   # `sacrifice` pays a flat 5 gold; `junk` pays cost/16, floored at 1 and
   # capped at 200. A mob corpse costs nothing, so sacrifice is the better of
   # the two there — 5 against 1.
-  - pattern: '^jc$'
+  - regex: '^jc$'
     send: ["get corpse", "junk corpse"]
 
   # `sc` — 5 gold instead of 1 for a mob corpse. Same warning as above: this
   # destroys the corpse and everything in it.
-  - pattern: '^sc$'
+  - regex: '^sc$'
     send: ["sacrifice corpse"]
 
 triggers:
   # fight.c prints "$n is dead!  R.I.P." with TWO spaces after the bang.
   - id: autoloot
-    pattern: '^(?P<who>.+) is dead!  R\.I\.P\.$'
+    regex: '^(?P<who>.+) is dead!  R\.I\.P\.$'
     when: '${who} != "Mathias" and ${who} != "Saihtam"'
     send: ["get all corpse"]
 
@@ -72,7 +72,7 @@ triggers:
   # Anchored deliberately: unanchored, somebody gossiping "There were 500
   # coins." would make you hand over gold you never found.
   - id: split-loot
-    pattern: '^There were (?P<coins>\d+) coins\.$'
+    regex: '^There were (?P<coins>\d+) coins\.$'
     send: ["split ${coins}"]
 
   # do_split needs AFF_GROUP, so playing solo this replies every single time
@@ -81,13 +81,13 @@ triggers:
   # amount / num` is integer division, so splitting 7 two ways gives 3 each
   # and you keep the odd coin.
   - id: gag-split-solo
-    pattern: '^With whom do you wish to share your gold\?$'
+    regex: '^With whom do you wish to share your gold\?$'
     gag: true
 
   # Same line, unguarded: whatever died, this fight is over, so drop the
   # latches rather than waiting out the timer.
   - id: fight-over
-    pattern: ' is dead!  R\.I\.P\.$'
+    regex: ' is dead!  R\.I\.P\.$'
     set:
       healing: "0"
       assisting: "0"
@@ -95,7 +95,7 @@ triggers:
       retrying: "0"
 
   - id: fled
-    pattern: '^You flee head over heels\.$'
+    regex: '^You flee head over heels\.$'
     set:
       healing: "0"
       assisting: "0"
@@ -111,7 +111,7 @@ triggers:
   # "you are now fighting X", and MSDP never reports OPPONENT_NAME because
   # comm.c's msdp_update only ever sets the self-vitals block.)
   - id: track-target
-    pattern: '^.*?(?P<foe>\w+) (?:tail whips|miss|tickles|hits|stings|whips|slashes|bites|bludgeons|crushes|pounds|claws|mauls|thrashes|pierces|blasts|punches|stabs|gores|massacres|obliterates|liquifies|vaporizes|annihilates|ATOMIZES) you\b'
+    regex: '^.*?(?P<foe>\w+) (?:tail whips|miss|tickles|hits|stings|whips|slashes|bites|bludgeons|crushes|pounds|claws|mauls|thrashes|pierces|blasts|punches|stabs|gores|massacres|obliterates|liquifies|vaporizes|annihilates|ATOMIZES) you\b'
     set:
       target: "${foe}"
 
@@ -119,10 +119,10 @@ triggers:
   # Gagged rather than removed: the retry is what makes the duo robust, and
   # its failures are not news.
   - id: gag-assist-early
-    pattern: '^But they are not fighting anyone\.$'
+    regex: '^But they are not fighting anyone\.$'
     gag: true
   - id: gag-assist-late
-    pattern: '^But you are already fighting someone!$'
+    regex: '^But you are already fighting someone!$'
     gag: true
 
 timers:

@@ -47,18 +47,18 @@ cross_session:
 aliases:
   # Anchored, all of them: these now also match commands mathias injects,
   # and an unanchored `am` would fire on any line containing "am".
-  - pattern: '^am$'
+  - regex: '^am$'
     send: ["assist mathias"]
 
   # `ch` — heal mathias with the best spell for the size of the hole. This
   # is what mathias' `h` and his automatic call both arrive as.
-  - pattern: '^ch$'
+  - regex: '^ch$'
     script:
       file: duo.lua
       fn: heal_tank
 
   # `cc` — same judgement, applied to me.
-  - pattern: '^cc$'
+  - regex: '^cc$'
     script:
       file: duo.lua
       fn: heal_self
@@ -66,11 +66,11 @@ aliases:
   # Naming a rung by hand, when you want to override the choice. `cure
   # light` is 1d8 — about five hit points — so it is a between-fights
   # top-up, not a heal.
-  - pattern: '^clm$'
+  - regex: '^clm$'
     send: ["cast 'cure light' mathias"]
-  - pattern: '^csm$'
+  - regex: '^csm$'
     send: ["cast 'cure serious' mathias"]
-  - pattern: '^ccm$'
+  - regex: '^ccm$'
     send: ["cast 'cure critic' mathias"]
 
 triggers:
@@ -83,7 +83,7 @@ triggers:
   # Same per-round anchor as mathias uses, matched against the messages the
   # server sends *me* when something hits me.
   - id: self-heal
-    pattern: &incoming '(?:\b(?:miss|tickles|hits|stings|whips|slashes|bites|bludgeons|crushes|pounds|claws|mauls|thrashes|pierces|blasts|punches|stabs|gores|massacres|obliterates|liquifies|vaporizes|annihilates|ATOMIZES) you\b|^You staggers from a fearsome )'
+    regex: &incoming '(?:\b(?:miss|tickles|hits|stings|whips|slashes|bites|bludgeons|crushes|pounds|claws|mauls|thrashes|pierces|blasts|punches|stabs|gores|massacres|obliterates|liquifies|vaporizes|annihilates|ATOMIZES) you\b|^You staggers from a fearsome )'
     when: '${self_healing} == 0'
     script:
       file: duo.lua
@@ -94,7 +94,7 @@ triggers:
   # maximum. All this does is say so, because mathias is about to stop being
   # healed and needs to know why.
   - id: wimped-out
-    pattern: '^You wimp out, and attempt to flee!$'
+    regex: '^You wimp out, and attempt to flee!$'
     send: ["gn fled, low HP"]
     bell: true
     set:
@@ -105,7 +105,7 @@ triggers:
   # so the heal has to be re-thrown — but only if mathias is still low
   # enough to need it, and only once per cooldown.
   - id: retry-heal
-    pattern: '^You lost your concentration!'
+    regex: '^You lost your concentration!'
     when: '${retrying} == 0'
     script:
       file: duo.lua
@@ -114,7 +114,7 @@ triggers:
   # Out of mana is mathias' problem more than mine: he is the one who has
   # to decide to break off. `gn` puts it in his comms pane.
   - id: out-of-mana
-    pattern: '^You haven''t the energy to cast that spell!$'
+    regex: '^You haven''t the energy to cast that spell!$'
     script:
       file: duo.lua
       fn: no_energy
@@ -128,7 +128,7 @@ triggers:
   # than any level table, because `cast` gates on the learned percentage and
   # a spell has to be practised, not just reached.
   - id: unknown-spell
-    pattern: '^You do not know that spell!$'
+    regex: '^You do not know that spell!$'
     script:
       file: duo.lua
       fn: not_known
@@ -137,19 +137,19 @@ triggers:
   # between-fights spell was sent mid-fight; it cost nothing, but the
   # command it was meant to be did not happen.
   - id: wrong-position
-    pattern: '^Impossible!  You can''t concentrate enough!$'
+    regex: '^Impossible!  You can''t concentrate enough!$'
     highlight:
       fg: yellow
       whole_line: true
 
   - id: partner-died
-    pattern: '^Your blood freezes as you hear Mathias''s death cry\.$'
+    regex: '^Your blood freezes as you hear Mathias''s death cry\.$'
     bell: true
     highlight:
       fg: red
       bold: true
       whole_line: true
 
-  - pattern: '^You are dead!  Sorry\.\.\.$'
+  - regex: '^You are dead!  Sorry\.\.\.$'
     corpse: true
     bell: true
