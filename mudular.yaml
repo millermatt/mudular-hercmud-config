@@ -38,4 +38,4 @@ channels:
     keep_in_main: false
     timestamps: true
 
-map_graphics: true
+# map_graphics: true
