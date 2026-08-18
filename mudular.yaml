@@ -11,11 +11,31 @@ keybinds:
 
 channels:
   - name: comms
+    # HercMUD sends every one of its channels through a single format
+    # (`src/act.comm.c`, do_gen_comm): "[ Name ]: $n -- 'text'", with the
+    # channel's name capitalised. So Gossip looks exactly like Newbie, and
+    # the same shape adds Quest, Auction, Cant and Dream if you ever want
+    # them. `shout` is the exception -- "$n shouts 'text'".
+    #
+    # What you send yourself is echoed back in a different shape entirely,
+    # so each channel needs both halves or your own half of the
+    # conversation stays in the main pane. Note `groupnet` singular in the
+    # echo against `groupnets` plural in what you receive -- that is the
+    # server's own asymmetry (act.comm.c), not a typo here.
+    #
+    # WizNets needs no echo pattern: the sender is inside the same
+    # descriptor loop as everyone else and sees the `Name WizNets ::`
+    # form. It only ever fires for an immortal (LV_AVATAR) in any case.
     regex:
-      - '^\[gossip\]'
-      - '^\w+ tells you'
+      - '^\[ Gossip \]:'
       - '^\[ Newbie \]:'
+      - "^You (Gossip|Newbie), '"
+      - '^\w+ tells you'
+      - "^You tell \\w+ '"
       - '^\w+ WizNets ::'
       - '^.+ groupnets ::'
+      - "^You groupnet :: '"
     keep_in_main: false
     timestamps: true
+
+map_graphics: true
