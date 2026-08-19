@@ -11,6 +11,8 @@ port: 4443
 tls:
   enabled: true
   verify: full        # full | pinned | insecure
+log: true               # `[duo]` decisions land here too — this is the
+                        # transcript to read when a heal did not happen
 charset: utf-8          # or a legacy fallback: latin1, cp437
 color: yellow
 modules:
@@ -137,6 +139,17 @@ triggers:
       fg: red
       bold: true
       whole_line: true
+
+  # Practising is the one thing that makes an earlier refusal wrong. Rather
+  # than work out which spell it was — the message does not say — put the
+  # whole ladder back and let the server refuse again if it still wants to.
+  # Without this a spell struck off before you practised it stays struck
+  # for the rest of the session.
+  - id: practised
+    regex: '^You practice (?:for a while\.\.\.|by using it\.)$'
+    script:
+      file: duo.lua
+      fn: practised
 
   # The server's own answer about what this cleric can cast — worth more
   # than any level table, because `cast` gates on the learned percentage and

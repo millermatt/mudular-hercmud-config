@@ -128,18 +128,34 @@ end
 -- different fixes, and reporting both as "no mana" is what let a struck-off
 -- ladder hide behind a mana complaint for a whole fight.
 local function why_nothing(mana)
-  local cheapest
+  -- Reached only when `pick` came back empty, so this has to apply the same
+  -- filters `pick` does or it reports a different problem from the one that
+  -- actually stopped the heal. It said "ladder empty" once while four rungs
+  -- were merely out of reach, which sent mathias a message that was not
+  -- true and pointed at the wrong fix.
+  local level = own_level()
+  local cheapest, out_of_reach
   for _, spell in ipairs(LADDER) do
-    if not unknown[spell.name] and (not cheapest or spell.cost < cheapest) then
-      cheapest = spell.cost
+    if not unknown[spell.name] then
+      if level and spell.level > level then
+        out_of_reach = true
+      elseif not cheapest or spell.cost < cheapest then
+        cheapest = spell.cost
+      end
     end
   end
-  if not cheapest then
-    return "every spell is struck off (" .. struck() .. ") — `duo!` puts them back",
-           "gn ladder empty, cannot heal"
+
+  if cheapest then
+    return "cheapest heal left costs " .. cheapest .. " and I have " .. tostring(mana),
+           "gn no mana"
   end
-  return "cheapest heal left costs " .. cheapest .. " and I have " .. tostring(mana),
-         "gn no mana"
+  if out_of_reach then
+    return "nothing at my level (" .. tostring(level) .. ") that is not struck off ("
+             .. struck() .. ")",
+           "gn too low to heal you"
+  end
+  return "every spell is struck off (" .. struck() .. ") — `duo!` puts them back",
+         "gn ladder empty, cannot heal"
 end
 
 local function heal(target, fraction, deficit)
@@ -321,4 +337,15 @@ end
 function reset_ladder()
   unknown = {}
   mud.echo("[duo] ladder restored; the server gets to refuse them again.")
+end
+
+-- Practising is the only thing that turns a refusal into a lie. `unknown`
+-- is what the server told us at the time, and the server has just changed
+-- its mind — so forget all of it rather than guess which spell was being
+-- practised, which the message does not say.
+function practised()
+  local had = struck()
+  if had == "none" then return end
+  unknown = {}
+  mud.echo("[duo] practised something — putting the ladder back (was: " .. had .. ")")
 end
