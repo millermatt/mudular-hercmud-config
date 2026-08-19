@@ -29,11 +29,16 @@ local SELF_HEAL_BELOW = 0.55   -- saihtam looks after himself below 55%
 -- its dice from mag_points (magic.c); `level` is the class requirement from
 -- class.c, recorded for the reader only.
 --
--- `level` is deliberately NOT used as a gate. On this server `cast` checks
--- HAS_SKILL, which is the *learned* percentage (utils.h) — so being high
--- enough level does not mean the spell is castable, because a cleric has to
--- `practice` it first. What the spell list really is gets discovered below,
--- from the server's own refusals, which is right in both directions.
+-- `level` is necessary but not sufficient, and is used only in that
+-- direction. On this server `cast` checks HAS_SKILL, the *learned*
+-- percentage (utils.h), so being high enough level does not mean the spell
+-- is castable — a cleric has to `practice` it first, and that half is
+-- discovered below from the server's own refusals.
+--
+-- But the converse holds: a spell above this cleric's level cannot have
+-- been practised, so skipping it can never skip something castable. It
+-- saves the two or three refused casts a low-level cleric would otherwise
+-- throw at the top of the ladder on the first heal of every session.
 local LADDER = {
   { name = "cure light",   cost = 10, heals =  5, level =  1 },
   { name = "cure minor",   cost = 20, heals = 10, level =  5 },
@@ -71,6 +76,13 @@ local function own_mana()
   return tonumber(mud.data("MANA")) or math.huge
 end
 
+-- Unknown level lets everything through, for the same reason unknown mana
+-- reads as plenty: a missing MSDP value must not be the thing that stops a
+-- heal.
+local function own_level()
+  return tonumber(mud.data("LEVEL"))
+end
+
 local function pct(f)
   return string.format("%d%% HP", math.floor(f * 100 + 0.5))
 end
@@ -81,8 +93,10 @@ end
 -- nothing is affordable at all.
 local function pick(deficit, mana, ceiling)
   local fallback
+  local level = own_level()
   for _, spell in ipairs(LADDER) do
     if not unknown[spell.name] and spell.cost <= mana
+      and (not level or spell.level <= level)
       and (not ceiling or spell.cost < ceiling) then
       if spell.heals >= deficit then return spell end
       fallback = spell
@@ -99,14 +113,44 @@ end
 
 -- Pick and throw the best heal at `target`, given how big the hole is.
 -- Shared by every entry point so the choice is made in exactly one place.
+-- What the server has refused so far, for a human to read.
+local function struck()
+  local names = {}
+  for _, spell in ipairs(LADDER) do
+    if unknown[spell.name] then names[#names + 1] = spell.name end
+  end
+  if #names == 0 then return "none" end
+  return table.concat(names, ", ")
+end
+
+-- Why `pick` came back empty, in the words of whatever is actually wrong.
+-- An emptied ladder and an empty mana pool are different problems with
+-- different fixes, and reporting both as "no mana" is what let a struck-off
+-- ladder hide behind a mana complaint for a whole fight.
+local function why_nothing(mana)
+  local cheapest
+  for _, spell in ipairs(LADDER) do
+    if not unknown[spell.name] and (not cheapest or spell.cost < cheapest) then
+      cheapest = spell.cost
+    end
+  end
+  if not cheapest then
+    return "every spell is struck off (" .. struck() .. ") — `duo!` puts them back",
+           "gn ladder empty, cannot heal"
+  end
+  return "cheapest heal left costs " .. cheapest .. " and I have " .. tostring(mana),
+         "gn no mana"
+end
+
 local function heal(target, fraction, deficit)
   if not fraction then return end
 
   local mana = own_mana()
   local spell = pick(deficit, mana)
   if not spell then
-    mud.echo("[duo] nothing castable for " .. target .. " on " .. tostring(mana) .. " mana.")
-    mud.send("gn no mana")
+    local why, tell = why_nothing(mana)
+    mud.echo("[duo] no heal for " .. target .. ": " .. why)
+    mud.send(tell)
     return false
   end
 
@@ -235,4 +279,46 @@ function retry_heal()
   if heal(target, f, deficit) then
     mud.set("retrying", "1")
   end
+end
+
+-- ---------------------------------------------------------------------
+-- Naming a rung by hand, and seeing what the server has refused.
+-- ---------------------------------------------------------------------
+
+-- The by-hand overrides go through here rather than sending the cast
+-- themselves. `not_known` strikes off whatever `pending` holds, and
+-- `pending` is only ever set by `cast` — so a cast the script did not
+-- record leaves the *last scripted* spell standing to take the blame for
+-- a refusal it did not earn, and that spell is struck off for good.
+local BY_HAND = { cl = "cure light", cs = "cure serious", cc = "cure critic" }
+
+function cast_named(line, caps)
+  local name = BY_HAND[caps[1]]
+  for _, spell in ipairs(LADDER) do
+    if spell.name == name then
+      -- Say no here rather than spending a combat round finding out. The
+      -- server would answer "You do not know that spell!", which costs the
+      -- round the tank was waiting on and teaches nothing the class table
+      -- already knows.
+      local level = own_level()
+      if level and spell.level > level then
+        mud.echo("[duo] " .. spell.name .. " is level " .. spell.level
+                 .. " and I am " .. level .. " — not casting it.")
+        return
+      end
+      cast(spell, "mathias", "by hand")
+      return
+    end
+  end
+end
+
+function show_ladder()
+  mud.echo("[duo] struck off: " .. struck() .. " — `duo!` puts them back.")
+end
+
+-- Without this the only way back from a wrong strike-off is `/reload`,
+-- which is not a thing anyone thinks of mid-fight.
+function reset_ladder()
+  unknown = {}
+  mud.echo("[duo] ladder restored; the server gets to refuse them again.")
 end

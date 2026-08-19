@@ -66,12 +66,26 @@ aliases:
   # Naming a rung by hand, when you want to override the choice. `cure
   # light` is 1d8 — about five hit points — so it is a between-fights
   # top-up, not a heal.
-  - regex: '^clm$'
-    send: ["cast 'cure light' mathias"]
-  - regex: '^csm$'
-    send: ["cast 'cure serious' mathias"]
-  - regex: '^ccm$'
-    send: ["cast 'cure critic' mathias"]
+  #
+  # Through the script rather than sending the cast directly: a refusal
+  # names no spell, so `not_known` blames whatever `pending` holds. A cast
+  # the script did not record therefore gets a *scripted* spell struck off
+  # in its place, permanently and silently.
+  - regex: '^(cl|cs|cc)m$'
+    script:
+      file: duo.lua
+      fn: cast_named
+
+  # What the server has refused, and the way back from a wrong answer.
+  # `unknown` is in-memory and only `/reload` used to clear it.
+  - regex: '^duo\?$'
+    script:
+      file: duo.lua
+      fn: show_ladder
+  - regex: '^duo!$'
+    script:
+      file: duo.lua
+      fn: reset_ladder
 
 triggers:
   # mathias does the looting; two characters racing for the same corpse is
